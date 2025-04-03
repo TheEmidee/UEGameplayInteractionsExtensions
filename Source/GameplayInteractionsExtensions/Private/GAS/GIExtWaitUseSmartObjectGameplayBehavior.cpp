@@ -1,23 +1,15 @@
 #include "GAS/GIExtWaitUseSmartObjectGameplayBehavior.h"
 
-#include "BlueprintLibraries/CoreExtArrayBlueprintLibrary.h"
+#include "GIExtFunctionLibrary.h"
 
 #include <AbilitySystemComponent.h>
-#include <GameplayBehavior.h>
 #include <GameplayInteractionSmartObjectBehaviorDefinition.h>
 #include <Misc/ScopeExit.h>
-#include <SmartObjectComponent.h>
 #include <SmartObjectSubsystem.h>
 #include <VisualLogger/VisualLogger.h>
 
-void UGIExtWaitUseSmartObjectProxy::SendEventToStateTree( const FGameplayTag tag )
-{
-    GameplayInteractionContext.SendEvent( tag );
-}
-
 UGIExtWaitUseSmartObjectGameplayBehavior::UGIExtWaitUseSmartObjectGameplayBehavior( const FObjectInitializer & object_initializer ) :
     Super( object_initializer )
-
 {
     bInteractionCompleted = false;
     bTickingTask = true;
@@ -39,106 +31,38 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::Activate()
         }
     };
 
-    if ( !ClaimedHandle.IsValid() )
+    if ( !Context.IsValid() )
     {
         return;
     }
 
-    auto * smart_object_subsystem = USmartObjectSubsystem::GetCurrent( GetAvatarActor()->GetWorld() );
-    if ( !ensureMsgf( smart_object_subsystem != nullptr, TEXT( "SmartObjectSubsystem must be accessible at this point." ) ) )
+    Context.OnSlotInvalidatedCallback = [ this ]( const FSmartObjectClaimHandle & /*claim_handle*/, ESmartObjectSlotState /*state*/ ) {
+        Abort( EGameplayInteractionAbortReason::InternalAbort );
+    };
+
+    GameplayInteractionContextWrapper = NewObject< UGIExtGameplayInteractionContextWrapper >();
+    if ( GameplayInteractionContextWrapper->StartInteraction( Context ) )
     {
-        return;
-    }
-
-    // A valid claimed handle can point to an object that is no longer part of the simulation
-    if ( !smart_object_subsystem->IsClaimedSmartObjectValid( ClaimedHandle ) )
-    {
-        UE_VLOG( GetAvatarActor(), LogSmartObject, Log, TEXT( "Claim handle: %s refers to an object that is no longer available." ), *LexToString( ClaimedHandle ) );
-        return;
-    }
-
-    // Register a callback to be notified if the claimed slot became unavailable
-    smart_object_subsystem->RegisterSlotInvalidationCallback( ClaimedHandle, FOnSlotInvalidated::CreateUObject( this, &ThisClass::OnSlotInvalidated ) );
-
-    bSuccess = StartInteraction();
-
-    if ( bSuccess )
-    {
-        OnActivated.Broadcast( SmartObjectProxy );
+        OnActivated.Broadcast( GameplayInteractionContextWrapper );
+        bSuccess = true;
     }
 }
 
 UGIExtWaitUseSmartObjectGameplayBehavior * UGIExtWaitUseSmartObjectGameplayBehavior::WaitUseSmartObjectGameplayBehaviorWithSmartObjectComponent( UGameplayAbility * owning_ability, USmartObjectComponent * smart_object_component, EGIExtSmartObjectComponentSlotSelection slot_selection, const TArray< TSubclassOf< USmartObjectBehaviorDefinition > > behavior_definition_classes, const FGameplayTagQuery activity_tags, ESmartObjectClaimPriority claim_priority )
 {
-    auto * smart_object_subsystem = USmartObjectSubsystem::GetCurrent( owning_ability->GetWorld() );
+    FGIExtFindSlotQuery query;
+    query.Querier = owning_ability->GetAvatarActorFromActorInfo();
+    query.SmartObjectComponent = smart_object_component;
+    query.SlotSelection = slot_selection;
+    query.ClaimPriority = claim_priority;
 
-    const auto registered_handle = smart_object_component->GetRegisteredHandle();
+    owning_ability->GetAbilitySystemComponentFromActorInfo()->GetOwnedGameplayTags( query.RequestFilter.UserTags );
+    query.RequestFilter.BehaviorDefinitionClasses = behavior_definition_classes;
+    query.RequestFilter.ActivityRequirements = activity_tags;
 
-    FSmartObjectRequestFilter smart_object_request_filter;
-    owning_ability->GetAbilitySystemComponentFromActorInfo()->GetOwnedGameplayTags( smart_object_request_filter.UserTags );
-    smart_object_request_filter.BehaviorDefinitionClasses = behavior_definition_classes;
-    smart_object_request_filter.ActivityRequirements = activity_tags;
+    const auto context = UGIExtFunctionLibrary::CreateGameplayInteractionContext( query );
 
-    TArray< FSmartObjectSlotHandle > slots;
-    smart_object_subsystem->FindSlots( registered_handle, smart_object_request_filter, slots );
-
-    FSmartObjectClaimHandle claim_handle( FSmartObjectClaimHandle::InvalidHandle );
-
-    for ( auto ite = slots.CreateIterator(); ite; ++ite )
-    {
-        const auto slot_handle = *ite;
-
-        if ( !smart_object_subsystem->CanBeClaimed( slot_handle ) )
-        {
-            ite.RemoveCurrent();
-        }
-    }
-
-    if ( slots.Num() > 0 )
-    {
-        FSmartObjectSlotHandle selected_slot;
-
-        switch ( slot_selection )
-        {
-            case EGIExtSmartObjectComponentSlotSelection::First:
-            {
-                selected_slot = slots[ 0 ];
-            }
-            break;
-            case EGIExtSmartObjectComponentSlotSelection::Closest:
-            {
-                const auto avatar_location = owning_ability->GetAvatarActorFromActorInfo()->GetActorLocation();
-                auto max_distance_squared = TNumericLimits< float >::Max();
-
-                for ( const auto slot_handle : slots )
-                {
-                    const auto slot_location = smart_object_subsystem->GetSlotLocation( slot_handle ).GetValue();
-                    const auto distance_squared = ( slot_location - avatar_location ).SquaredLength();
-
-                    if ( distance_squared < max_distance_squared )
-                    {
-                        max_distance_squared = distance_squared;
-                        selected_slot = slot_handle;
-                    }
-                }
-            }
-            break;
-            case EGIExtSmartObjectComponentSlotSelection::Random:
-            {
-                selected_slot = UCoreExtArrayBlueprintLibrary::GetRandomArrayValue( slots );
-            }
-            break;
-            default:
-            {
-                checkNoEntry();
-                break;
-            }
-        }
-
-        claim_handle = smart_object_subsystem->MarkSlotAsClaimed( selected_slot, claim_priority );
-    }
-
-    return WaitUseSmartObjectGameplayBehaviorWithClaimHandle( owning_ability, claim_handle );
+    return WaitUseSmartObjectGameplayBehaviorWithContext( owning_ability, context );
 }
 
 UGIExtWaitUseSmartObjectGameplayBehavior * UGIExtWaitUseSmartObjectGameplayBehavior::WaitUseSmartObjectGameplayBehaviorWithSlotHandle( UGameplayAbility * owning_ability, FSmartObjectSlotHandle slot_handle, ESmartObjectClaimPriority claim_priority )
@@ -152,61 +76,31 @@ UGIExtWaitUseSmartObjectGameplayBehavior * UGIExtWaitUseSmartObjectGameplayBehav
 UGIExtWaitUseSmartObjectGameplayBehavior * UGIExtWaitUseSmartObjectGameplayBehavior::WaitUseSmartObjectGameplayBehaviorWithClaimHandle( UGameplayAbility * owning_ability, FSmartObjectClaimHandle claim_handle )
 {
     auto * task = NewAbilityTask< UGIExtWaitUseSmartObjectGameplayBehavior >( owning_ability );
-    task->ClaimedHandle = claim_handle;
+
+    FGIExtStartGameplayInteractionContext context;
+    context.Querier = owning_ability->GetAvatarActorFromActorInfo();
+    context.ClaimHandle = claim_handle;
+
+    task->Context = context;
     return task;
 }
 
-bool UGIExtWaitUseSmartObjectGameplayBehavior::StartInteraction()
+UGIExtWaitUseSmartObjectGameplayBehavior * UGIExtWaitUseSmartObjectGameplayBehavior::WaitUseSmartObjectGameplayBehaviorWithContext( UGameplayAbility * owning_ability, const FGIExtStartGameplayInteractionContext & context )
 {
-    const auto * world = GetAvatarActor()->GetWorld();
-    auto * smart_object_subsystem = USmartObjectSubsystem::GetCurrent( world );
-    if ( !ensure( smart_object_subsystem ) )
-    {
-        return false;
-    }
-
-    const auto * behavior_definition = smart_object_subsystem->MarkSlotAsOccupied< UGameplayInteractionSmartObjectBehaviorDefinition >( ClaimedHandle );
-    if ( behavior_definition == nullptr )
-    {
-        UE_VLOG_UELOG( GetAvatarActor(), LogGameplayInteractions, Error, TEXT( "SmartObject was claimed for a different type of behavior definition. Expecting: %s." ), *UGameplayInteractionSmartObjectBehaviorDefinition::StaticClass()->GetName() );
-        return false;
-    }
-
-    const auto * smart_object_component = smart_object_subsystem->GetSmartObjectComponent( ClaimedHandle );
-
-    SmartObjectProxy = NewObject< UGIExtWaitUseSmartObjectProxy >( this );
-
-    SmartObjectProxy->GameplayInteractionContext.SetContextActor( GetAvatarActor() );
-    SmartObjectProxy->GameplayInteractionContext.SetSmartObjectActor( smart_object_component ? smart_object_component->GetOwner() : nullptr );
-    SmartObjectProxy->GameplayInteractionContext.SetClaimedHandle( ClaimedHandle );
-
-    return SmartObjectProxy->GameplayInteractionContext.Activate( *behavior_definition );
+    auto * task = NewAbilityTask< UGIExtWaitUseSmartObjectGameplayBehavior >( owning_ability );
+    task->Context = context;
+    return task;
 }
 
 void UGIExtWaitUseSmartObjectGameplayBehavior::Abort( const EGameplayInteractionAbortReason reason )
 {
-    AbortContext.Reason = reason;
-
-    if ( !bInteractionCompleted )
-    {
-        SmartObjectProxy->GameplayInteractionContext.SetAbortContext( AbortContext );
-    }
-
+    GameplayInteractionContextWrapper->AbortInteraction( reason );
     EndTask();
 }
 
 void UGIExtWaitUseSmartObjectGameplayBehavior::OnDestroy( bool ability_ended )
 {
-    if ( ClaimedHandle.IsValid() )
-    {
-        auto * smart_object_subsystem = USmartObjectSubsystem::GetCurrent( GetAvatarActor()->GetWorld() );
-        check( smart_object_subsystem != nullptr );
-
-        smart_object_subsystem->MarkSlotAsFree( ClaimedHandle );
-        smart_object_subsystem->UnregisterSlotInvalidationCallback( ClaimedHandle );
-
-        ClaimedHandle.Invalidate();
-    }
+    GameplayInteractionContextWrapper->FinishInteraction();
 
     if ( TaskState != EGameplayTaskState::Finished )
     {
@@ -220,7 +114,7 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::OnDestroy( bool ability_ended )
         }
     }
 
-    SmartObjectProxy = nullptr;
+    GameplayInteractionContextWrapper = nullptr;
     Super::OnDestroy( ability_ended );
 }
 
@@ -228,7 +122,7 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::TickTask( float delta_time )
 {
     Super::TickTask( delta_time );
 
-    const auto keep_ticking = SmartObjectProxy->GameplayInteractionContext.Tick( delta_time );
+    const auto keep_ticking = GameplayInteractionContextWrapper->TickInteraction( delta_time );
     if ( !keep_ticking )
     {
         bInteractionCompleted = true;
@@ -236,19 +130,14 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::TickTask( float delta_time )
     }
 }
 
-void UGIExtWaitUseSmartObjectGameplayBehavior::OnSlotInvalidated( const FSmartObjectClaimHandle & /*claim_handle*/, ESmartObjectSlotState /*state*/ )
-{
-    Abort( EGameplayInteractionAbortReason::InternalAbort );
-}
-
-void UGIExtWaitUseSmartObjectGameplayBehavior::OnSmartObjectBehaviorFinished( UGameplayBehavior & behavior, AActor & avatar, const bool interrupted )
-{
-    // make sure we handle the right pawn - we can get this notify for a different
-    // Avatar if the behavior sending it out is not instanced (CDO is being used to perform actions)
-    if ( GetAvatarActor() == &avatar )
-    {
-        behavior.GetOnBehaviorFinishedDelegate().Remove( OnBehaviorFinishedNotifyHandle );
-        bInteractionCompleted = true;
-        EndTask();
-    }
-}
+//void UGIExtWaitUseSmartObjectGameplayBehavior::OnSmartObjectBehaviorFinished( UGameplayBehavior & behavior, AActor & avatar, const bool interrupted )
+//{
+//    // make sure we handle the right pawn - we can get this notify for a different
+//    // Avatar if the behavior sending it out is not instanced (CDO is being used to perform actions)
+//    if ( GetAvatarActor() == &avatar )
+//    {
+//        behavior.GetOnBehaviorFinishedDelegate().Remove( OnBehaviorFinishedNotifyHandle );
+//        bInteractionCompleted = true;
+//        EndTask();
+//    }
+//}

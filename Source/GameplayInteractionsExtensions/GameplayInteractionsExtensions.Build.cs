@@ -26,6 +26,7 @@ public class GameplayInteractionsExtensions : ModuleRules
             new string[]
             {
                 "Core",
+                "SmartObjectsModule",
 				// ... add other public dependencies that you statically link with here ...
 			}
             );
@@ -43,7 +44,6 @@ public class GameplayInteractionsExtensions : ModuleRules
                 "CoreExtensions",
                 "GameplayTags",
                 "GameplayAbilities",
-                "SmartObjectsModule",
                 "StateTreeModule",
                 "GameplayTasks"
             }

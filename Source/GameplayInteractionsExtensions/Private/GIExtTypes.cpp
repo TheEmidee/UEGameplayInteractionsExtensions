@@ -45,17 +45,17 @@ bool UGIExtGameplayInteractionContextWrapper::StartInteraction( const FGIExtStar
 
 bool UGIExtGameplayInteractionContextWrapper::TickInteraction( float delta_time )
 {
-    return GameplayInteractionContext.Tick( delta_time );
+    bInteractionCompleted = !GameplayInteractionContext.Tick( delta_time );
+    return !bInteractionCompleted;
 }
 
 void UGIExtGameplayInteractionContextWrapper::AbortInteraction( EGameplayInteractionAbortReason abort_reason )
 {
-    FGameplayInteractionAbortContext abort_context;
-    abort_context.Reason = abort_reason;
+    AbortContext.Reason = abort_reason;
 
     if ( !bInteractionCompleted )
     {
-        GameplayInteractionContext.SetAbortContext( abort_context );
+        GameplayInteractionContext.SetAbortContext( AbortContext );
     }
 }
 

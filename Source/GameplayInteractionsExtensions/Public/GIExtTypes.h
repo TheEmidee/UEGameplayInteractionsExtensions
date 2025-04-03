@@ -31,16 +31,18 @@ struct GAMEPLAYINTERACTIONSEXTENSIONS_API FGIExtStartGameplayInteractionContext
     UPROPERTY( BlueprintReadWrite )
     FSmartObjectClaimHandle ClaimHandle;
 
+    TFunction< void() > PreActivationCallback = {};
     TFunction< void( const FSmartObjectClaimHandle &, ESmartObjectSlotState ) > OnSlotInvalidatedCallback = {};
 };
 
 UCLASS( BlueprintType )
-class UGIExtGameplayInteractionContextWrapper : public UObject
+class GAMEPLAYINTERACTIONSEXTENSIONS_API UGIExtGameplayInteractionContextWrapper : public UObject
 {
     GENERATED_BODY()
 
 public:
     bool HasInteractionCompleted() const;
+    EGameplayInteractionAbortReason GetAbortReason() const;
     bool StartInteraction( const FGIExtStartGameplayInteractionContext & context );
     bool TickInteraction( float delta_time );
     void AbortInteraction( EGameplayInteractionAbortReason abort_reason );
@@ -57,10 +59,16 @@ private:
     FGameplayInteractionContext GameplayInteractionContext;
 
     FGIExtStartGameplayInteractionContext StartInteractionContext;
+    FGameplayInteractionAbortContext AbortContext;
     bool bInteractionCompleted = false;
 };
 
 FORCEINLINE bool UGIExtGameplayInteractionContextWrapper::HasInteractionCompleted() const
 {
     return bInteractionCompleted;
+}
+
+FORCEINLINE EGameplayInteractionAbortReason UGIExtGameplayInteractionContextWrapper::GetAbortReason() const
+{
+    return AbortContext.Reason;
 }

@@ -54,11 +54,5 @@ private:
     UPROPERTY()
     TObjectPtr< UGIExtGameplayInteractionContextWrapper > GameplayInteractionContextWrapper;
 
-    UPROPERTY()
-    FGameplayInteractionAbortContext AbortContext;
-
     FGIExtStartGameplayInteractionContext Context;
-    FDelegateHandle OnBehaviorFinishedNotifyHandle;
-    bool bInteractionCompleted;
-    ESmartObjectClaimPriority ClaimPriority;
 };

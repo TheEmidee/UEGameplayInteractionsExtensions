@@ -2,7 +2,6 @@
 
 #include "BlueprintLibraries/CoreExtArrayBlueprintLibrary.h"
 
-#include <GameplayInteractionSmartObjectBehaviorDefinition.h>
 #include <SmartObjectComponent.h>
 #include <SmartObjectSubsystem.h>
 
@@ -79,7 +78,11 @@ FGIExtStartGameplayInteractionContext UGIExtFunctionLibrary::CreateGameplayInter
 
     FGIExtStartGameplayInteractionContext context;
     context.Querier = query.Querier;
-    context.ClaimHandle = smart_object_subsystem->MarkSlotAsClaimed( selected_slot, query.ClaimPriority );
+
+    const FSmartObjectActorUserData actor_user_data( context.Querier );
+    const FConstStructView actor_user_data_view( FConstStructView::Make( actor_user_data ) );
+    context.ClaimHandle = smart_object_subsystem->MarkSlotAsClaimed( selected_slot, query.ClaimPriority, actor_user_data_view );
+
     context.SmartObjectActor = query.SmartObjectComponent != nullptr ? query.SmartObjectComponent->GetOwner() : nullptr;
 
     return context;

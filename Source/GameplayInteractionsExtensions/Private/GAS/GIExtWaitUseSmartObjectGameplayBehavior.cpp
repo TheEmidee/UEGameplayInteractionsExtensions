@@ -11,9 +11,7 @@
 UGIExtWaitUseSmartObjectGameplayBehavior::UGIExtWaitUseSmartObjectGameplayBehavior( const FObjectInitializer & object_initializer ) :
     Super( object_initializer )
 {
-    bInteractionCompleted = false;
     bTickingTask = true;
-    ClaimPriority = ESmartObjectClaimPriority::Normal;
 }
 
 void UGIExtWaitUseSmartObjectGameplayBehavior::Activate()
@@ -104,7 +102,7 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::OnDestroy( bool ability_ended )
 
     if ( TaskState != EGameplayTaskState::Finished )
     {
-        if ( AbortContext.Reason == EGameplayInteractionAbortReason::Unset && bInteractionCompleted )
+        if ( GameplayInteractionContextWrapper->GetAbortReason() == EGameplayInteractionAbortReason::Unset && GameplayInteractionContextWrapper->HasInteractionCompleted() )
         {
             OnSucceeded.Broadcast();
         }
@@ -122,10 +120,8 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::TickTask( float delta_time )
 {
     Super::TickTask( delta_time );
 
-    const auto keep_ticking = GameplayInteractionContextWrapper->TickInteraction( delta_time );
-    if ( !keep_ticking )
+    if ( !GameplayInteractionContextWrapper->TickInteraction( delta_time ) )
     {
-        bInteractionCompleted = true;
         EndTask();
     }
 }

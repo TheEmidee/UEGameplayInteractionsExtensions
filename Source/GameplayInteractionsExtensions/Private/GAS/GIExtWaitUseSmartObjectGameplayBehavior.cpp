@@ -34,9 +34,13 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::Activate()
         return;
     }
 
-    Context.OnSlotInvalidatedCallback = [ this ]( const FSmartObjectClaimHandle & /*claim_handle*/, ESmartObjectSlotState /*state*/ ) {
+    Context.OnSlotInvalidatedCallback.BindLambda( [ this ]( const FSmartObjectClaimHandle & /*claim_handle*/, ESmartObjectSlotState /*state*/ ) {
         Abort( EGameplayInteractionAbortReason::InternalAbort );
-    };
+    } );
+
+    Context.OnInteractionFinishedCallback.BindLambda( [ & ]() {
+        EndTask();
+    } );
 
     GameplayInteractionContextWrapper = NewObject< UGIExtGameplayInteractionContextWrapper >();
     if ( GameplayInteractionContextWrapper->StartInteraction( Context ) )
@@ -115,25 +119,3 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::OnDestroy( bool ability_ended )
     GameplayInteractionContextWrapper = nullptr;
     Super::OnDestroy( ability_ended );
 }
-
-void UGIExtWaitUseSmartObjectGameplayBehavior::TickTask( float delta_time )
-{
-    Super::TickTask( delta_time );
-
-    if ( !GameplayInteractionContextWrapper->TickInteraction( delta_time ) )
-    {
-        EndTask();
-    }
-}
-
-//void UGIExtWaitUseSmartObjectGameplayBehavior::OnSmartObjectBehaviorFinished( UGameplayBehavior & behavior, AActor & avatar, const bool interrupted )
-//{
-//    // make sure we handle the right pawn - we can get this notify for a different
-//    // Avatar if the behavior sending it out is not instanced (CDO is being used to perform actions)
-//    if ( GetAvatarActor() == &avatar )
-//    {
-//        behavior.GetOnBehaviorFinishedDelegate().Remove( OnBehaviorFinishedNotifyHandle );
-//        bInteractionCompleted = true;
-//        EndTask();
-//    }
-//}

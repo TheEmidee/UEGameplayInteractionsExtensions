@@ -1,6 +1,5 @@
 #pragma once
 
-#include "GIExtFunctionLibrary.h"
 #include "GIExtTypes.h"
 
 #include <Abilities/Tasks/AbilityTask.h>
@@ -40,7 +39,6 @@ public:
 private:
     void Abort( const EGameplayInteractionAbortReason reason );
     void OnDestroy( bool ability_ended ) override;
-    void TickTask( float delta_time ) override;
 
     UPROPERTY( BlueprintAssignable )
     FOnWaitUseSmartObjectGameplayBehaviorActivated OnActivated;

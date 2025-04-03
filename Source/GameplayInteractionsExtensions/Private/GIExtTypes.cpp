@@ -40,14 +40,16 @@ bool UGIExtGameplayInteractionContextWrapper::StartInteraction( const FGIExtStar
 
     smart_object_subsystem->RegisterSlotInvalidationCallback( context.ClaimHandle, FOnSlotInvalidated::CreateUObject( this, &ThisClass::OnSlotInvalidated ) );
 
+    StartInteractionContext.PreActivationCallback.ExecuteIfBound();
+
     return GameplayInteractionContext.Activate( *behavior_definition );
 }
 
-bool UGIExtGameplayInteractionContextWrapper::TickInteraction( float delta_time )
-{
-    bInteractionCompleted = !GameplayInteractionContext.Tick( delta_time );
-    return !bInteractionCompleted;
-}
+// bool UGIExtGameplayInteractionContextWrapper::TickInteraction( float delta_time )
+//{
+//     bInteractionCompleted = !GameplayInteractionContext.Tick( delta_time );
+//     return !bInteractionCompleted;
+// }
 
 void UGIExtGameplayInteractionContextWrapper::AbortInteraction( EGameplayInteractionAbortReason abort_reason )
 {
@@ -61,6 +63,11 @@ void UGIExtGameplayInteractionContextWrapper::AbortInteraction( EGameplayInterac
 
 void UGIExtGameplayInteractionContextWrapper::FinishInteraction()
 {
+    if ( bInteractionCompleted )
+    {
+        return;
+    }
+
     GameplayInteractionContext.Deactivate();
 
     if ( StartInteractionContext.ClaimHandle.IsValid() )
@@ -73,6 +80,27 @@ void UGIExtGameplayInteractionContextWrapper::FinishInteraction()
 
         StartInteractionContext.ClaimHandle.Invalidate();
     }
+
+    bInteractionCompleted = true;
+    StartInteractionContext.OnInteractionFinishedCallback.ExecuteIfBound();
+}
+
+void UGIExtGameplayInteractionContextWrapper::Tick( float delta_time )
+{
+    if ( !GameplayInteractionContext.Tick( delta_time ) )
+    {
+        FinishInteraction();
+    }
+}
+
+bool UGIExtGameplayInteractionContextWrapper::IsTickable() const
+{
+    return !bInteractionCompleted;
+}
+
+TStatId UGIExtGameplayInteractionContextWrapper::GetStatId() const
+{
+    RETURN_QUICK_DECLARE_CYCLE_STAT( UGIExtGameplayInteractionContextWrapper, STATGROUP_Tickables );
 }
 
 void UGIExtGameplayInteractionContextWrapper::SendEventToStateTree( const FGameplayTag tag )
@@ -94,5 +122,5 @@ USmartObjectSubsystem * UGIExtGameplayInteractionContextWrapper::GetSmartObjectS
 
 void UGIExtGameplayInteractionContextWrapper::OnSlotInvalidated( const FSmartObjectClaimHandle & claim_handle, ESmartObjectSlotState state )
 {
-    StartInteractionContext.OnSlotInvalidatedCallback( claim_handle, state );
+    StartInteractionContext.OnSlotInvalidatedCallback.ExecuteIfBound( claim_handle, state );
 }

@@ -31,12 +31,13 @@ struct GAMEPLAYINTERACTIONSEXTENSIONS_API FGIExtStartGameplayInteractionContext
     UPROPERTY( BlueprintReadWrite )
     FSmartObjectClaimHandle ClaimHandle;
 
-    TFunction< void() > PreActivationCallback = {};
-    TFunction< void( const FSmartObjectClaimHandle &, ESmartObjectSlotState ) > OnSlotInvalidatedCallback = {};
+    FSimpleDelegate PreActivationCallback;
+    FSimpleDelegate OnInteractionFinishedCallback;
+    FOnSlotInvalidated  OnSlotInvalidatedCallback;
 };
 
 UCLASS( BlueprintType )
-class GAMEPLAYINTERACTIONSEXTENSIONS_API UGIExtGameplayInteractionContextWrapper : public UObject
+class GAMEPLAYINTERACTIONSEXTENSIONS_API UGIExtGameplayInteractionContextWrapper : public UObject, public FTickableGameObject
 {
     GENERATED_BODY()
 
@@ -44,9 +45,13 @@ public:
     bool HasInteractionCompleted() const;
     EGameplayInteractionAbortReason GetAbortReason() const;
     bool StartInteraction( const FGIExtStartGameplayInteractionContext & context );
-    bool TickInteraction( float delta_time );
+    // bool TickInteraction( float delta_time );
     void AbortInteraction( EGameplayInteractionAbortReason abort_reason );
     void FinishInteraction();
+
+    void Tick( float delta_time ) override;
+    bool IsTickable() const override;
+    TStatId GetStatId() const override;
 
     UFUNCTION( BlueprintCallable )
     void SendEventToStateTree( const FGameplayTag tag );

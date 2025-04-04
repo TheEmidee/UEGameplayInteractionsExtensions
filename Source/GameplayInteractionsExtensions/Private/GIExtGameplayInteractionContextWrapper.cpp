@@ -102,6 +102,18 @@ void UGIExtGameplayInteractionContextWrapper::SendEventToStateTree( const FGamep
     GameplayInteractionContext.SendEvent( tag );
 }
 
+UGIExtGameplayInteractionContextWrapper * UGIExtGameplayInteractionContextWrapper::StartGameplayInteractionFromContext( const FGIExtStartGameplayInteractionContext & context )
+{
+    auto * wrapper = NewObject< UGIExtGameplayInteractionContextWrapper >();
+
+    if ( !wrapper->StartInteraction( context ) )
+    {
+        return nullptr;
+    }
+
+    return wrapper;
+}
+
 USmartObjectSubsystem * UGIExtGameplayInteractionContextWrapper::GetSmartObjectSubsystem() const
 {
     const auto * world = StartInteractionContext.Querier->GetWorld();

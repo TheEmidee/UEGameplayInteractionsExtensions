@@ -17,6 +17,8 @@ public:
     EGameplayInteractionAbortReason GetAbortReason() const;
     bool StartInteraction( const FGIExtStartGameplayInteractionContext & context );
     void AbortInteraction( EGameplayInteractionAbortReason abort_reason );
+
+    UFUNCTION( BlueprintCallable )
     void FinishInteraction();
 
     void Tick( float delta_time ) override;
@@ -25,6 +27,9 @@ public:
 
     UFUNCTION( BlueprintCallable )
     void SendEventToStateTree( const FGameplayTag tag );
+
+    UFUNCTION( BlueprintCallable )
+    static UGIExtGameplayInteractionContextWrapper * StartGameplayInteractionFromContext( const FGIExtStartGameplayInteractionContext & context );
 
 private:
     USmartObjectSubsystem * GetSmartObjectSubsystem() const;

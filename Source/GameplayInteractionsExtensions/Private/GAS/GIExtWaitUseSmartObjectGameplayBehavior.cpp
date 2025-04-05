@@ -1,6 +1,7 @@
 #include "GAS/GIExtWaitUseSmartObjectGameplayBehavior.h"
 
 #include "GIExtFunctionLibrary.h"
+#include "GIExtGameplayInteractionContextWrapper.h"
 
 #include <AbilitySystemComponent.h>
 #include <GameplayInteractionSmartObjectBehaviorDefinition.h>

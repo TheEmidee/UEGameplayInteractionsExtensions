@@ -4,6 +4,7 @@
 
 #include <Abilities/Tasks/AbilityTask.h>
 #include <CoreMinimal.h>
+#include <GameplayInteractionsTypes.h>
 #include <SmartObjectRuntime.h>
 #include <SmartObjectTypes.h>
 
@@ -11,6 +12,7 @@
 
 class UGameplayBehavior;
 class USmartObjectComponent;
+class UGIExtGameplayInteractionContextWrapper;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FOnWaitUseSmartObjectGameplayBehaviorActivated, UGIExtGameplayInteractionContextWrapper *, Proxy );
 

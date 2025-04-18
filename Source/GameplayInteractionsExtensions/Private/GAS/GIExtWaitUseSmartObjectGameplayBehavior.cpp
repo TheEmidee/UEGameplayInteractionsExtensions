@@ -103,20 +103,28 @@ void UGIExtWaitUseSmartObjectGameplayBehavior::Abort( const EGameplayInteraction
 
 void UGIExtWaitUseSmartObjectGameplayBehavior::OnDestroy( bool ability_ended )
 {
-    GameplayInteractionContextWrapper->FinishInteraction();
-
-    if ( TaskState != EGameplayTaskState::Finished )
+    if ( GameplayInteractionContextWrapper != nullptr )
     {
-        if ( GameplayInteractionContextWrapper->GetAbortReason() == EGameplayInteractionAbortReason::Unset && GameplayInteractionContextWrapper->HasInteractionCompleted() )
+        GameplayInteractionContextWrapper->FinishInteraction();
+
+        if ( TaskState != EGameplayTaskState::Finished )
         {
-            OnSucceeded.Broadcast();
+            if ( GameplayInteractionContextWrapper->GetAbortReason() == EGameplayInteractionAbortReason::Unset && GameplayInteractionContextWrapper->HasInteractionCompleted() )
+            {
+                OnSucceeded.Broadcast();
+            }
+            else
+            {
+                OnFailed.Broadcast();
+            }
         }
-        else
-        {
-            OnFailed.Broadcast();
-        }
+
+        GameplayInteractionContextWrapper = nullptr;
+    }
+    else
+    {
+        OnFailed.Broadcast();
     }
 
-    GameplayInteractionContextWrapper = nullptr;
     Super::OnDestroy( ability_ended );
 }

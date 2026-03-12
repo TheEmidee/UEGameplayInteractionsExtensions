@@ -1,8 +1,10 @@
 #pragma once
 
+#include "GIExtTypes.h"
+
 #include <Abilities/Tasks/AbilityTask.h>
 #include <CoreMinimal.h>
-#include <GameplayInteractionContext.h>
+#include <GameplayInteractionsTypes.h>
 #include <SmartObjectRuntime.h>
 #include <SmartObjectTypes.h>
 
@@ -10,29 +12,9 @@
 
 class UGameplayBehavior;
 class USmartObjectComponent;
+class UGIExtGameplayInteractionContextWrapper;
 
-UENUM( BlueprintType )
-enum class EGIExtSmartObjectComponentSlotSelection : uint8
-{
-    First,
-    Closest,
-    Random
-};
-
-UCLASS( BlueprintType )
-class UGIExtWaitUseSmartObjectProxy : public UObject
-{
-    GENERATED_BODY()
-
-public:
-    UFUNCTION( BlueprintCallable )
-    void SendEventToStateTree( const FGameplayTag tag );
-
-    UPROPERTY()
-    FGameplayInteractionContext GameplayInteractionContext;
-};
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FOnWaitUseSmartObjectGameplayBehaviorActivated, UGIExtWaitUseSmartObjectProxy *, Proxy );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FOnWaitUseSmartObjectGameplayBehaviorActivated, UGIExtGameplayInteractionContextWrapper *, Proxy );
 
 UCLASS()
 class GAMEPLAYINTERACTIONSEXTENSIONS_API UGIExtWaitUseSmartObjectGameplayBehavior final : public UAbilityTask
@@ -53,14 +35,12 @@ public:
     UFUNCTION( BlueprintCallable, Category = "Ability|Tasks", meta = ( HidePin = "owning_ability", DefaultToSelf = "owning_ability", BlueprintInternalUseOnly = "TRUE" ) )
     static UGIExtWaitUseSmartObjectGameplayBehavior * WaitUseSmartObjectGameplayBehaviorWithClaimHandle( UGameplayAbility * owning_ability, FSmartObjectClaimHandle claim_handle );
 
+    UFUNCTION( BlueprintCallable, Category = "Ability|Tasks", meta = ( HidePin = "owning_ability", DefaultToSelf = "owning_ability", BlueprintInternalUseOnly = "TRUE" ) )
+    static UGIExtWaitUseSmartObjectGameplayBehavior * WaitUseSmartObjectGameplayBehaviorWithContext( UGameplayAbility * owning_ability, const FGIExtStartGameplayInteractionContext & context );
+
 private:
-    bool StartInteraction();
     void Abort( const EGameplayInteractionAbortReason reason );
     void OnDestroy( bool ability_ended ) override;
-    void TickTask( float delta_time ) override;
-
-    void OnSlotInvalidated( const FSmartObjectClaimHandle & claim_handle, ESmartObjectSlotState state );
-    void OnSmartObjectBehaviorFinished( UGameplayBehavior & behavior, AActor & avatar, const bool interrupted );
 
     UPROPERTY( BlueprintAssignable )
     FOnWaitUseSmartObjectGameplayBehaviorActivated OnActivated;
@@ -72,13 +52,7 @@ private:
     FGenericGameplayTaskDelegate OnFailed;
 
     UPROPERTY()
-    TObjectPtr< UGIExtWaitUseSmartObjectProxy > SmartObjectProxy;
+    TObjectPtr< UGIExtGameplayInteractionContextWrapper > GameplayInteractionContextWrapper;
 
-    UPROPERTY()
-    FGameplayInteractionAbortContext AbortContext;
-
-    FSmartObjectClaimHandle ClaimedHandle;
-    FDelegateHandle OnBehaviorFinishedNotifyHandle;
-    bool bInteractionCompleted;
-    ESmartObjectClaimPriority ClaimPriority;
+    FGIExtStartGameplayInteractionContext Context;
 };

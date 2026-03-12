@@ -5,6 +5,7 @@
 #include <CoreMinimal.h>
 #include <Kismet/BlueprintFunctionLibrary.h>
 #include <SmartObjectSubsystem.h>
+#include "SmartObjectRequestTypes.h"
 
 #include "GIExtFunctionLibrary.generated.h"
 
